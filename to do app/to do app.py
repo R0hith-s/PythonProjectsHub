@@ -1,5 +1,6 @@
 import customtkinter as ctk
-
+import json, os
+from datetime import date
 app = ctk.CTk()
 app_width=850
 app_height=800
@@ -8,16 +9,46 @@ sh=app.winfo_screenheight()
 x=(sw-app_width)//2
 y=(sh-app_height)//2
 app.geometry(f"{app_width}x{app_height}+{x}+{y}")
-task=[]
-
-
-
-
 
 
 app.title("To-Do List App")
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
+DATA_FILE = "tasks.json"
+tasks = []  
+def save_tasks():
+    data = []
+    for frame_row in tasks:
+        for widget in frame_row.winfo_children():
+            if isinstance(widget, ctk.CTkCheckBox):
+                data.append({
+                    "text": widget.cget("text"),
+                    "checked": widget.get() == 1
+                })
+    with open(DATA_FILE, "w") as f:
+        json.dump({"date": str(date.today()), "tasks": data}, f, indent=4)
+def add_task_ui(text, checked=False):
+    frame_row = ctk.CTkFrame(frame)
+    frame_row.pack(pady=5, padx=5, fill="x")
+
+    chk = ctk.CTkCheckBox(frame_row, text=text, font=("Segoe UI", 15, "bold"))
+    if checked:
+        chk.select()
+    chk.pack(padx=5, pady=5, side="left")
+    tasks.append(frame_row)
+
+def load_tasks():
+    if not os.path.exists(DATA_FILE):
+        return
+    with open(DATA_FILE, "r") as f:
+        data = json.load(f)
+
+    if data.get("date") != str(date.today()):
+        return
+
+    for t in data.get("tasks", []):
+        add_task_ui(t["text"], t["checked"])
+
 
 def dark_mode():
     if switch.get() == 1:
@@ -37,7 +68,7 @@ def add_task():
     mini.focus()
     mini.grab_set() 
     
-    def edit():
+    def edit(chk):
         mini2=ctk.CTkToplevel(app)
         mini2_width=350
         mini2_height=200
@@ -45,14 +76,25 @@ def add_task():
         mini2.title("Add New Task")
         mini2.lift() 
         mini2.focus()
-        mini2.grab_set() 
+        mini2.grab_set()  
 
-        edit_entry=ctk.CTkEntry(mini2,height=35,width=300)
-        edit_entry.place(relx=0.5, rely=0.15, anchor="center")
+        edit_entry = ctk.CTkEntry(mini2, height=35, width=300)
+        edit_entry.insert(0, chk.cget("text"))
+        edit_entry.place(relx=0.5, rely=0.3, anchor="center")
+        def save_edit():
+            new_text = edit_entry.get().strip()
+            if new_text:
+                chk.configure(text=new_text)
+                save_tasks()
+            mini2.destroy()
+        btn1=ctk.CTkButton(mini2,text="Edit",command=save_edit)
+        btn1.place(relx=0.5, rely=0.6, anchor="center")
 
     def remove(a):
         a.destroy()
-        task.remove(a)
+        tasks.remove(a)
+        save_tasks()
+
         
     def submit():
         a=entry.get()
@@ -65,21 +107,18 @@ def add_task():
             chk.pack( padx=5, pady=5,side="left")
             rbtn=ctk.CTkButton(frame_row,text="Remove",command=lambda: remove(frame_row))
             rbtn.pack(padx=5, pady=5,side="right")
-            ebtn=ctk.CTkButton(frame_row,text="Edit",command=edit)
+            ebtn=ctk.CTkButton(frame_row,text="Edit",command=lambda c=chk:edit(c))
             ebtn.pack(padx=5, pady=5,side="right")
-            task.append(frame_row)
+            tasks.append(frame_row)
+            save_tasks()
+
             
         mini.destroy()
-
-
-
 
     entry=ctk.CTkEntry(mini,width=300,height=35)
     entry.pack(pady=10)
     tbtn=ctk.CTkButton(mini,text="Add New Task",command=submit)
     tbtn.pack(pady=10)
-
-
 
 switch = ctk.CTkSwitch(app, text="Dark Mode", command=dark_mode, progress_color="#4cd137")
 switch.place(relx=1.0, rely=0.0, anchor="ne", x=-10, y=10)
@@ -100,5 +139,5 @@ if current_mode == "Dark":
     switch.select()
 else:
     switch.deselect()
-
+load_tasks()
 app.mainloop()
